@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Report  ZZTESTDATABASE
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZZTESTDATABASE.
+
+DATA: LS_MATDATA TYPE MARA,
+      LT_MATDATA TYPE TABLE OF MARA.
+
+FIELD-SYMBOLS <FS_MATDATA> TYPE MARA.
+
+SELECTION-SCREEN BEGIN OF BLOCK B1.
+  PARAMETERS P_MATNR LIKE LS_MATDATA-MATNR.
+SELECTION-SCREEN END OF BLOCK B1.
+
+SELECT * INTO TABLE LT_MATDATA
+         FROM  MARA
+         WHERE MATNR = P_MATNR.
+LOOP AT LT_MATDATA ASSIGNING <FS_MATDATA>.
+  WRITE: / <FS_MATDATA>-MANDT, <FS_MATDATA>-MATNR.
+ENDLOOP.

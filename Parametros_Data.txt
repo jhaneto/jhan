@@ -1,0 +1,69 @@
+*&---------------------------------------------------------------------*
+*& Report  ZAULA_PARAMETROS
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZAULA_PARAMETROS.
+
+TABLES: trdir, tstc.
+
+ PARAMETERS: p_ape1 TYPE c LENGTH 20, " Primer Apellido
+             p_ape2 TYPE c LENGTH 20, " Segundo Apellido
+             p_nombre TYPE c LENGTH 30. " Nombre
+
+ SELECTION-SCREEN SKIP. " Fecha de nacimiento
+
+ PARAMETERS p_fechan TYPE sydatum. " Nº de documento identificativo
+ PARAMETERS p_dni TYPE c LENGTH 15. " Domicilio
+ PARAMETERS p_domici TYPE c LENGTH 50. " Correo electrónico
+ PARAMETERS p_email TYPE c LENGTH 30.
+
+
+SELECTION-SCREEN SKIP. " Tipo de contrato
+PARAMETERS: p_cntr_i RADIOBUTTON GROUP cntr, " Indefinido
+p_cntr_t RADIOBUTTON GROUP cntr, " Temporal
+p_cntr_p RADIOBUTTON GROUP cntr. " Prácticas
+
+SELECTION-SCREEN SKIP. " Beneficios
+
+PARAMETERS p_tik_r TYPE c AS CHECKBOX DEFAULT 'X'. " Tiket restaurant
+PARAMETERS p_seg_m TYPE c AS CHECKBOX. " Seguro Médico
+PARAMETERS p_frm_p TYPE c AS CHECKBOX. " Formación profesional
+
+SELECTION-SCREEN SKIP.
+
+PARAMETERS: p_horas TYPE i, " Horas Semanales
+p_sal_m TYPE i. " Salario Mensual
+* Fecha de alta
+PARAMETERS p_fechaa TYPE sydatum.
+SELECTION-SCREEN SKIP. " Permisos
+SELECT-OPTIONS: s_prog FOR trdir-name, " Programas
+                s_tcode FOR tstc-tcode. " Códigos de transacción
+
+INITIALIZATION.
+
+p_fechaa = sy-datum.
+
+AT SELECTION-SCREEN ON p_ape1.
+
+  IF p_ape1 CA '0123456789'.
+MESSAGE e000(zl100000).
+  ENDIF.
+   AT SELECTION-SCREEN ON p_ape2.
+
+      IF p_ape2 CA '0123456789'.
+        MESSAGE e000(zl100000).
+      ENDIF.
+
+AT SELECTION-SCREEN ON p_nombre.
+
+  IF p_nombre CA '0123456789'.
+    MESSAGE e000(zl100000).
+ ENDIF.
+
+ START-OF-SELECTION.
+
+ WRITE 'Ejecución del programa'.

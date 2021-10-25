@@ -1,0 +1,44 @@
+*&---------------------------------------------------------------------*
+*& Report  ZEXEMPLO_PERFORM
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZEXEMPLO_PERFORM.
+
+
+START-OF-SELECTION.
+WRITE 'Click me!' COLOR = 5 HOTSPOT.
+
+AT LINE-SELECTION.
+WRITE: / 'You clicked list', sy-listi,
+/ 'You are on list', sy-lsind.
+IF sy-lsind <> 5.
+SKIP.
+WRITE: 'More ...' COLOR = 5 HOTSPOT.
+ENDIF.
+
+START-OF-SELECTION.
+
+WRITE: / TEXT-Z01,
+       'sy-lsind', SY-LSIND.
+
+
+AT LINE-SELECTION.
+
+  CASE SY-LSIND.
+    WHEN 1.
+      WRITE: / TEXT-Z02,
+            / 'sy-lsind' , SY-LSIND.
+    WHEN 2.
+        WRITE: / TEXT-Z03,
+            / 'sy-lsind' , SY-LSIND.
+ENDCASE.
+TABLES MARA.
+SELECT-OPTIONS STALIN FOR MARA-MTART.
+SELECT * FROM MARA WHERE MTART IN STALIN.
+WRITE :/ '\firsh vision ',MARA-MTART.
+ENDSELECT.
+WRITE :/ '\second vision ',STALIN-LOW, STALIN-HIGH, STALIN-SIGN, STALIN-OPTION.

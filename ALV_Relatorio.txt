@@ -1,0 +1,701 @@
+*&---------------------------------------------------------------------*
+*& Report  ZZALV
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZZALV.
+*&---------------------------------------------------------------------*
+*&  TOP
+*&---------------------------------------------------------------------*
+
+TABLES: zade.
+
+TYPE-POOLS slis. "ALV
+
+* Estrutura de campos do relatório
+TYPES: BEGIN OF ty_ade.
+        INCLUDE STRUCTURE zade.         "Tab resultado RFC
+TYPES: handle_style TYPE lvc_t_styl,    "Estilo edição
+       novo         TYPE c,             "Tipo proc => Novo
+       delete       TYPE c.             "Tipo proc => Eliminar
+TYPES: END OF ty_ade.
+
+DATA: t_ade_ori TYPE TABLE OF      zade,        "Tabela interna original.
+      t_ade     TYPE TABLE OF      ty_ade,      "Tabela interna com os campos para CRUD.
+      t_fieldcat     TYPE          lvc_t_fcat,  "Fieldcat alv
+      w_fieldcat     TYPE          lvc_s_fcat,
+      t_sort         TYPE          lvc_t_sort,  "Ordenação
+      w_sort         TYPE          lvc_s_sort,
+      w_layout       TYPE          lvc_s_layo,  "Layout alv
+      t_new          TYPE          lvc_t_styl,  "Registros novos
+      w_new          TYPE          lvc_s_styl,
+      t_edit         TYPE          lvc_t_styl,  "Registros editar
+      w_edit         TYPE          lvc_s_styl,
+      t_show         TYPE          lvc_t_styl,  "Registros exibir
+      w_show         TYPE          lvc_s_styl,
+      w_ade          TYPE          ty_ade,
+      w_ade_ori      TYPE          zade,
+      v_modific(1)   TYPE          c,           "Modif ou Visual
+      v_elimino(1)   TYPE          c,           "Eliminou registro
+      v_alterou(1)   TYPE          c,           "Alterou registro
+      v_inseriu(1)   TYPE          c,           "Criou regitro
+      t_ade_new      TYPE TABLE OF ty_ade,      "Registros novos
+      w_ade_new      TYPE          ty_ade,
+      t_ade_del      TYPE TABLE OF ty_ade,      "Registros eliminar
+      w_ade_del      TYPE          ty_ade,
+      t_ade_de2      TYPE TABLE OF zade,        "Registros eliminar
+      w_ade_de2      TYPE          zade,
+      t_ade_upd      TYPE TABLE OF ty_ade,      "Registros editar
+      w_ade_upd      TYPE          ty_ade,
+      t_ade_up2      TYPE TABLE OF zade,        "Registros editar
+      w_ade_up2      TYPE          zade,
+      v_log_handle   TYPE          balloghndl,  "handle da mensagem
+      v_msg          TYPE          abap_bool.
+
+*&---------------------------------------------------------------------*
+*&  SCREEN
+*&---------------------------------------------------------------------*
+
+SELECTION-SCREEN BEGIN OF BLOCK a WITH FRAME TITLE text-003.
+SELECT-OPTIONS: s_matnr  FOR  zade-matnr, " Centro
+                s_descri FOR zade-descri NO INTERVALS NO-EXTENSION. " Data Documento
+SELECTION-SCREEN END OF BLOCK a.
+
+START-OF-SELECTION.
+* Limpar conteúdo dos objetos
+  PERFORM zf_clear.
+
+* Selecionar registros
+  PERFORM zf_selecionar_dados.
+
+* Estrutura de campos e layout do ALV
+  PERFORM zf_alv_fieldcat.
+
+* Estrutura de campos ordenados no ALV
+  PERFORM zf_alv_sort.
+
+* Mapeamento para registros novos
+  PERFORM zf_new_fields.
+
+* Mapeamento para registros alterados
+  PERFORM zf_edit_fields.
+
+* Mapeamento para visualizar registros
+  PERFORM zf_show_fields.
+
+* Loop para montar tabela com campos editaveis ou não
+  PERFORM zf_make_fields.
+
+* Exibir relatório ALV
+  PERFORM zf_show_alv.
+
+END-OF-SELECTION.
+
+
+*&---------------------------------------------------------------------*
+*&  FORMS
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_SELECIONAR_DADOS
+*&---------------------------------------------------------------------*
+FORM zf_selecionar_dados .
+  SELECT *
+    INTO TABLE t_ade_ori
+    FROM zade
+   WHERE matnr  IN s_matnr
+     AND descri IN s_descri.
+  IF sy-subrc IS INITIAL.
+    SORT t_ade_ori BY matnr.
+  ELSE.
+    MESSAGE 'Dados não encontrado!' TYPE 'I' DISPLAY LIKE 'W'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.                    " ZF_SELECIONAR_DADOS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_CLEAR
+*&---------------------------------------------------------------------*
+FORM zf_clear .
+  CLEAR:
+      v_modific,
+      v_elimino,
+      v_alterou,
+      v_inseriu,
+      t_fieldcat[],
+      w_fieldcat,
+      w_layout,
+      w_new,
+      t_new[],
+      w_edit,
+      t_edit[],
+      w_show,
+      t_show[],
+      w_ade,
+      t_ade[],
+      t_ade_new[],
+      w_ade_new,
+      t_ade_del[],
+      w_ade_del,
+      t_ade_de2[],
+      w_ade_de2,
+      t_ade_upd[],
+      w_ade_upd,
+      t_ade_up2[],
+      w_ade_up2,
+      t_ade_ori[].
+
+  FREE:
+      t_fieldcat[],
+      t_new[],
+      t_edit[],
+      t_show[],
+      t_ade[],
+      t_ade_new[],
+      t_ade_del[],
+      t_ade_de2[],
+      t_ade_upd[],
+      t_ade_up2[],
+      t_ade_ori[].
+ENDFORM.                    " ZF_CLEAR
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_ALV_FIELDCAT
+*& Estrutura de campos e layout do ALV
+*&---------------------------------------------------------------------*
+FORM zf_alv_fieldcat .
+  CLEAR t_fieldcat[].
+
+* Campos do relatório
+  w_fieldcat-tabname        = 'T_ADE'.
+  w_fieldcat-fieldname      = 'MATNR'.
+  w_fieldcat-edit           = abap_false.
+  w_fieldcat-ref_table      = 'ZADE'.
+  w_fieldcat-ref_field      = 'MATNR'.
+*  w_fieldcat-scrtext_l      = 'CNPJ'.
+*  w_fieldcat-scrtext_m      = 'CNPJ'.
+*  w_fieldcat-scrtext_s      = 'CNPJ'.
+  w_fieldcat-outputlen      = 18.
+  w_fieldcat-emphasize      = abap_true.
+  APPEND w_fieldcat TO t_fieldcat.
+  CLEAR w_fieldcat.
+
+  w_fieldcat-tabname        = 'T_ADE'.
+  w_fieldcat-fieldname      = 'DESCRI'.
+  w_fieldcat-edit           = abap_true.
+  w_fieldcat-ref_table      = 'ZADE'.
+  w_fieldcat-ref_field      = 'DESCRI'.
+  w_fieldcat-outputlen      = 30.
+  APPEND w_fieldcat TO t_fieldcat.
+  CLEAR w_fieldcat.
+
+* Layout do relatório
+  w_layout-zebra            = abap_true.
+  w_layout-stylefname       = 'HANDLE_STYLE'.
+ENDFORM.                    " ZF_ALV_FIELDCAT
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_NEW_FIELDS
+*& Mapeamento para registros novos
+*&---------------------------------------------------------------------*
+FORM zf_new_fields .
+  CLEAR t_new[].
+
+  w_new-fieldname = 'MATNR'.
+  w_new-style     = cl_gui_alv_grid=>mc_style_enabled.
+  w_new-style2    = abap_false.
+  w_new-style3    = abap_false.
+  w_new-style4    = abap_false.
+  INSERT w_new INTO TABLE t_new.
+  CLEAR w_new.
+
+  w_new-fieldname = 'DESCRI'.
+  w_new-style     = cl_gui_alv_grid=>mc_style_enabled.
+  w_new-style2    = abap_false.
+  w_new-style3    = abap_false.
+  w_new-style4    = abap_false.
+  INSERT w_new INTO TABLE t_new.
+  CLEAR w_new.
+ENDFORM.                    " ZF_NEW_FIELDS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_EDIT_FIELDS
+*& Mapeamento para registros a serem alterados
+*&---------------------------------------------------------------------*
+FORM zf_edit_fields .
+  CLEAR t_edit[].
+
+  w_edit-fieldname = 'MATNR'.
+  w_edit-style     = cl_gui_alv_grid=>mc_style_disabled.
+  w_edit-style2    = abap_false.
+  w_edit-style3    = abap_false.
+  w_edit-style4    = abap_false.
+  INSERT w_edit INTO TABLE t_edit.
+  CLEAR w_edit.
+
+  w_edit-fieldname = 'DESCRI'.
+  w_edit-style     = cl_gui_alv_grid=>mc_style_enabled.
+  w_edit-style2    = abap_false.
+  w_edit-style3    = abap_false.
+  w_edit-style4    = abap_false.
+  INSERT w_edit INTO TABLE t_edit.
+  CLEAR w_edit.
+ENDFORM.                    " ZF_EDIT_FIELDS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_SHOW_FIELDS
+*& Mapeamento para visualizar registros
+*&---------------------------------------------------------------------*
+FORM zf_show_fields .
+  CLEAR t_show[].
+
+  w_show-fieldname = 'MATNR'.
+  w_show-style     = cl_gui_alv_grid=>mc_style_disabled.
+  w_show-style2    = abap_false.
+  w_show-style3    = abap_false.
+  w_show-style4    = abap_false.
+  INSERT w_show INTO TABLE t_show.
+  CLEAR w_show.
+
+  w_show-fieldname = 'DESCRI'.
+  w_show-style     = cl_gui_alv_grid=>mc_style_disabled.
+  w_show-style2    = abap_false.
+  w_show-style3    = abap_false.
+  w_show-style4    = abap_false.
+  INSERT w_show INTO TABLE t_show.
+  CLEAR w_show.
+ENDFORM.                    " ZF_SHOW_FIELDS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_SHOW_ALV
+*& Exibir relatório ALV
+*&---------------------------------------------------------------------*
+FORM zf_show_alv .
+  CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+    EXPORTING
+      i_callback_program       = sy-repid
+      is_layout_lvc            = w_layout
+      it_fieldcat_lvc          = t_fieldcat
+      i_callback_user_command  = 'ZF_COMMANDS'
+      i_callback_pf_status_set = 'ZF_STATUS'
+      it_sort_lvc              = t_sort
+    TABLES
+      t_outtab                 = t_ade[]
+    EXCEPTIONS
+      program_error            = 1
+      OTHERS                   = 2.
+  IF sy-subrc IS NOT INITIAL.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM.                    " ZF_SHOW_ALV
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_STATUS
+*& Botões do ALV
+*&---------------------------------------------------------------------*
+FORM zf_status USING ct_extab TYPE slis_t_extab.
+*  DATA l_extab LIKE LINE OF ct_extab.
+  CLEAR ct_extab.
+
+*  AUTHORITY-CHECK OBJECT 'ZOAXXXX'
+*    ID 'MATNR' FIELD p_matnr "Material
+*    ID 'ACTVT' FIELD '01'.   "Criar
+*  IF NOT sy-subrc IS INITIAL.
+*    MOVE '&NOVO' TO l_extab.
+*    APPEND l_extab TO ct_extab.
+*  ENDIF.
+*
+*  AUTHORITY-CHECK OBJECT 'ZOAXXXX'
+*    ID 'MATNR' FIELD p_emp  "Material
+*    ID 'ACTVT' FIELD '06'.  "Excluir
+*  IF NOT sy-subrc IS INITIAL.
+*    MOVE '&DELE' TO l_extab.
+*    APPEND l_extab TO ct_extab.
+*  ENDIF.
+*
+*  AUTHORITY-CHECK OBJECT 'ZOAXXXX'
+*    ID 'MATNR' FIELD p_emp  "Material
+*    ID 'ACTVT' FIELD '02'.  "Altera
+*  IF NOT sy-subrc IS INITIAL.
+*    MOVE '&MODF' TO l_extab.
+*    APPEND l_extab TO ct_extab.
+*  ENDIF.
+
+  SET PF-STATUS 'ZPFADE7' EXCLUDING ct_extab.
+ENDFORM.                    "ZF_STATUS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_MAKE_FIELDS
+*& Manutenção dos dados quando alterados
+*&---------------------------------------------------------------------*
+FORM zf_make_fields .
+  LOOP AT t_ade_ori INTO w_ade_ori.
+    MOVE-CORRESPONDING w_ade_ori TO w_ade.
+*    w_ade-novo = abap_true.
+    APPEND LINES OF t_show TO w_ade-handle_style.
+    APPEND w_ade TO t_ade.
+    CLEAR w_ade-handle_style[].
+  ENDLOOP.
+ENDFORM.                    " ZF_MAKE_FIELDS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_COMMANDS
+*& Ação dos botões do ALV
+*&---------------------------------------------------------------------*
+FORM zf_commands USING ucomm    TYPE sy-ucomm
+                       selfield TYPE slis_selfield.
+  DATA:
+    lv_tabix      TYPE        sy-tabix,
+    lv_duplic(1)  TYPE        c,
+    ref_grid      TYPE REF TO cl_gui_alv_grid,
+    lt_index_rows TYPE        lvc_t_row,
+    lt_row_no     TYPE        lvc_t_roid,
+    lw_row_no     TYPE        lvc_s_roid.
+
+* Busca valores do ALV ------------------------------------------------*
+  IF ref_grid IS INITIAL.
+    CALL FUNCTION 'GET_GLOBALS_FROM_SLVC_FULLSCR'
+      IMPORTING
+        e_grid = ref_grid.
+  ENDIF.
+
+  IF NOT ref_grid IS INITIAL.
+    CALL METHOD ref_grid->check_changed_data.
+  ENDIF.
+
+
+* Refresh -------------------------------------------------------------*
+  CASE ucomm.
+    WHEN '&REFR'.
+* Atualizar alv
+      PERFORM zf_refresh.
+
+    WHEN '&MODF'.
+* Ver/Modificar registro ----------------------------------------------*
+      IF v_modific IS INITIAL.
+        LOOP AT t_ade INTO w_ade.
+          lv_tabix = sy-tabix.
+          CLEAR w_ade-handle_style[].
+          IF w_ade-matnr IS INITIAL.
+            APPEND LINES OF t_new TO w_ade-handle_style.
+          ELSE.
+            APPEND LINES OF t_edit TO w_ade-handle_style.
+          ENDIF.
+          MODIFY t_ade FROM w_ade INDEX lv_tabix.
+        ENDLOOP.
+        v_modific = abap_true.
+      ELSE.
+        LOOP AT t_ade INTO w_ade WHERE matnr IS NOT INITIAL.
+          lv_tabix = sy-tabix.
+          CLEAR w_ade-handle_style[].
+          APPEND LINES OF t_show TO w_ade-handle_style.
+          MODIFY t_ade FROM w_ade INDEX lv_tabix.
+        ENDLOOP.
+        v_modific = abap_false.
+      ENDIF.
+
+* Novo registro -------------------------------------------------------*
+    WHEN '&NOVO'.
+      CLEAR w_ade.
+      w_ade-mandt = sy-mandt.
+      APPEND LINES OF t_new TO w_ade-handle_style.
+      w_ade-novo = abap_true.
+      APPEND w_ade TO t_ade.
+      CLEAR w_ade-handle_style[].
+
+* Eliminar registro ---------------------------------------------------*
+    WHEN '&DELE'.
+      CALL METHOD ref_grid->get_selected_rows
+        IMPORTING
+          et_index_rows = lt_index_rows
+          et_row_no     = lt_row_no.
+
+      LOOP AT lt_row_no INTO lw_row_no.
+        READ TABLE t_ade
+              INTO w_ade
+             INDEX lw_row_no-row_id.
+        IF sy-subrc IS INITIAL.
+          lv_tabix = sy-tabix.
+          w_ade-delete = abap_true.
+          MODIFY t_ade FROM w_ade INDEX lv_tabix.
+          MOVE-CORRESPONDING w_ade TO w_ade_del.
+          APPEND w_ade_del TO t_ade_del.
+          CLEAR w_ade_del.
+        ENDIF.
+      ENDLOOP.
+      DELETE t_ade WHERE delete = abap_true.
+
+* Gravar atualizações -------------------------------------------------*
+    WHEN '&SAVE'.
+      v_msg = abap_false.
+      PERFORM log_create.
+
+* Valida registros novos
+      t_ade_new[] = t_ade[].
+
+      DELETE t_ade_new WHERE novo IS INITIAL.
+      DELETE t_ade     WHERE novo IS NOT INITIAL.
+
+      LOOP AT t_ade_new INTO w_ade_new.
+* Atualiza tabela de visualização do ALV
+        READ TABLE t_ade
+              INTO w_ade
+          WITH KEY matnr        = w_ade_new-matnr.
+        IF sy-subrc IS INITIAL.
+          lv_duplic = abap_true.
+        ELSE.
+          w_ade-matnr        = w_ade_new-matnr.
+          w_ade-descri       = w_ade_new-descri.
+          w_ade-novo         = abap_false.
+
+          CLEAR w_ade-handle_style[].
+          APPEND LINES OF t_show TO w_ade-handle_style.
+          APPEND w_ade TO t_ade.
+        ENDIF.
+
+      ENDLOOP.
+
+* Insere registros na tabela original
+      IF t_ade[] IS NOT INITIAL.
+* Atualizar registros
+        LOOP AT t_ade INTO w_ade.
+          lv_tabix = sy-tabix.
+
+* Adicionar/modificar registros
+          IF w_ade-matnr IS INITIAL.
+            PERFORM log_add USING 'Material deve ser preenchido!'
+                                  'E'.
+            CONTINUE.
+          ENDIF.
+          w_ade_upd-matnr        = w_ade-matnr.
+          w_ade_upd-descri       = w_ade-descri.
+
+          READ TABLE t_ade_ori
+                INTO w_ade_ori
+            WITH KEY matnr     = w_ade_upd-matnr.
+          IF sy-subrc IS INITIAL.
+            IF w_ade_ori-descri = w_ade_upd-descri.
+              CONTINUE.
+            ELSE.
+              v_alterou = abap_true.
+            ENDIF.
+          ELSE.
+            v_inseriu = abap_true.
+          ENDIF.
+          APPEND w_ade_upd TO t_ade_upd.
+        ENDLOOP.
+
+* Alterar tabela de fornecedores
+        CLEAR t_ade_up2[].
+        LOOP AT t_ade_upd INTO w_ade_upd.
+          MOVE-CORRESPONDING w_ade_upd TO w_ade_up2.
+          APPEND w_ade_up2 TO t_ade_up2.
+        ENDLOOP.
+        IF NOT t_ade_up2[] IS INITIAL.
+          MODIFY zade FROM TABLE t_ade_up2.
+        ENDIF.
+        CLEAR t_ade_upd[].
+      ENDIF.
+
+* Elimina registros
+      CLEAR t_ade_de2[].
+      LOOP AT t_ade_del INTO w_ade_del.
+        MOVE-CORRESPONDING w_ade_del TO w_ade_de2.
+        APPEND w_ade_de2 TO t_ade_de2.
+      ENDLOOP.
+      IF t_ade_de2[] IS NOT INITIAL.
+        DELETE zade FROM TABLE t_ade_de2.
+        v_elimino = abap_true.
+      ENDIF.
+
+* Mensagens
+      IF v_inseriu IS NOT INITIAL.
+        PERFORM log_add USING 'Registro(s) inseridos(s) com sucesso!'
+                              'S'.
+      ENDIF.
+
+      IF v_alterou IS NOT INITIAL.
+        PERFORM log_add USING 'Registro(s) modificado(s) com sucesso!'
+                              'S'.
+      ENDIF.
+
+      IF v_elimino IS NOT INITIAL.
+        PERFORM log_add USING 'Registro(s) eliminado(s) com sucesso!'
+                              'S'.
+      ENDIF.
+
+      IF lv_duplic IS NOT INITIAL.
+        PERFORM log_add USING 'Um ou mais registros duplicados foram removidos!'
+                              'S'.
+      ENDIF.
+
+      PERFORM log_show.
+
+* Atualizar alv
+      PERFORM zf_refresh.
+  ENDCASE.
+
+*  SORT t_ade BY matnr.
+
+* Atualiza os dados no ALV
+  selfield-refresh = abap_true.
+ENDFORM.                    "ZF_COMMANDS
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_REFRESH
+*& Atualizar alv
+*&---------------------------------------------------------------------*
+FORM zf_refresh .
+* Limpar conteúdo dos objetos
+  PERFORM zf_clear.
+
+* Selecionar registros
+  PERFORM zf_selecionar_dados.
+
+* Estrutura de campos e layout do ALV
+  PERFORM zf_alv_fieldcat.
+
+* Estrutura de campos ordenados no ALV
+  PERFORM zf_alv_sort.
+
+* Mapeamento para registros novos
+  PERFORM zf_new_fields.
+
+* Mapeamento para registros a serem alterados
+  PERFORM zf_edit_fields.
+
+* Mapeamento para visualizar registros
+  PERFORM zf_show_fields.
+
+* Loop para montar tabela com campos editaveis ou não
+  PERFORM zf_make_fields.
+ENDFORM.                    " ZF_REFRESH
+
+*&---------------------------------------------------------------------*
+*&      Form  ZF_ALV_SORT
+*&---------------------------------------------------------------------*
+FORM zf_alv_sort.
+  CLEAR w_sort.
+  w_sort-fieldname = 'MATNR'.
+  w_sort-spos = '1'.
+  w_sort-up = 'X'.
+  APPEND w_sort TO t_sort.
+ENDFORM.                    " ZF_ALV_SORT
+
+*&---------------------------------------------------------------------*
+*&      Form  log_create
+*& Cria o handle do LOG
+*&---------------------------------------------------------------------*
+FORM log_create.
+  DATA l_s_log TYPE bal_s_log.
+
+  IF v_log_handle IS INITIAL.
+* create an initial log file
+    l_s_log-extnumber  = 'ZADE7'(001).
+    CALL FUNCTION 'BAL_LOG_CREATE'
+      EXPORTING
+        i_s_log      = l_s_log
+      IMPORTING
+        e_log_handle = v_log_handle
+      EXCEPTIONS
+        OTHERS       = 1.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+  ENDIF.
+
+* Limpar as mensagens anteriores
+  CALL FUNCTION 'BAL_LOG_MSG_DELETE_ALL'
+    EXPORTING
+      i_log_handle  = v_log_handle
+    EXCEPTIONS
+      log_not_found = 1
+      OTHERS        = 2.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+             WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+
+ENDFORM.                    "log_create
+
+*&---------------------------------------------------------------------*
+*&      Form  LOG_ADD
+*& Adiciona mensagem para exibir
+*&---------------------------------------------------------------------*
+FORM log_add USING p_msg       TYPE bal_s_msg-msgv1
+                   p_msgty     TYPE bal_s_msg-msgty. "E / W / S
+*                   p_probclass TYPE bal_s_msg-probclass. "1 / 2 / 3
+  DATA l_s_msg TYPE bal_s_msg.
+
+  v_msg = abap_true.
+
+  l_s_msg-msgid     = '88'.
+  l_s_msg-msgno     = 0.
+  l_s_msg-msgty     = p_msgty.
+*  l_s_msg-probclass = p_probclass.
+  l_s_msg-msgv1     = p_msg.
+
+*   add message to log file
+*   (we explicitly specify I_LOG_HANLDE since we want to add this
+*    message to the new opened log. The default log might be different
+*    from this!).
+  CALL FUNCTION 'BAL_LOG_MSG_ADD'
+    EXPORTING
+      i_log_handle = v_log_handle
+      i_s_msg      = l_s_msg
+    EXCEPTIONS
+      OTHERS       = 1.
+  IF sy-subrc <> 0.
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+             WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+  ENDIF.
+ENDFORM.                    "LOG_ADD
+
+*&---------------------------------------------------------------------*
+*&      Form  LOG_SHOW
+*& Exibi a mensagem
+*&---------------------------------------------------------------------*
+FORM log_show.
+  DATA:
+    l_s_display_profile TYPE bal_s_prof.
+
+  IF v_msg EQ abap_true.
+* get a prepared profile
+    CALL FUNCTION 'BAL_DSP_PROFILE_POPUP_GET'
+      IMPORTING
+        e_s_display_profile = l_s_display_profile
+      EXCEPTIONS
+        OTHERS              = 1.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+
+* set report to allow saving of variants
+    l_s_display_profile-disvariant-report = sy-repid.
+
+* when you use also other ALV lists in your report,
+* please specify a handle to distinguish between the display
+* variants of these different lists, e.g:
+    l_s_display_profile-disvariant-handle = 'LOG'.
+
+* call display function module
+* We do not specify any filter (like I_S_LOG_FILTER, ...,
+* I_T_MSG_HANDLE) since we want to display all logs available
+    CALL FUNCTION 'BAL_DSP_LOG_DISPLAY'
+      EXPORTING
+        i_s_display_profile = l_s_display_profile
+      EXCEPTIONS
+        OTHERS              = 1.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+               WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
+    ENDIF.
+  ENDIF.
+ENDFORM.                    "LOG_SHOW

@@ -1,0 +1,93 @@
+*&---------------------------------------------------------------------*
+*& Report  ZEXEMPLO_AT_LINES3
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZEXEMPLO_AT_LINES3.
+
+
+TYPE-POOLS : TPIT.
+
+DATA : W_BSEG     TYPE BSEG,
+       W_MESSAGE  TYPE T100-TEXT.
+*PARAMETER: NOME TYPE TPIT_T_FNAME.
+DATA :   IT_ERRTAB  TYPE  TPIT_T_ERRDOC WITH HEADER LINE,
+         IT_FLDTAB  TYPE  TPIT_T_FNAME  WITH HEADER LINE,
+         IT_BUZTAB  TYPE  TPIT_T_BUZTAB WITH HEADER LINE.
+
+* Field name to be changed
+  IT_FLDTAB-FNAME = 'ZUONR'.
+  APPEND IT_FLDTAB.
+  CLEAR  IT_FLDTAB.
+
+* Field value
+  W_BSEG-ZUONR = 'TEST ASSIGNMENT'.
+
+  SELECT SINGLE
+           BUKRS
+           BELNR
+           GJAHR
+           BUZEI
+           KOART
+           UMSKZ
+           BSCHL
+           MWART
+           MWSKZ
+  FROM BSEG
+  INTO CORRESPONDING FIELDS OF IT_BUZTAB
+  WHERE BELNR = '0902001922' AND
+        BUKRS = '3160'       AND
+        GJAHR = '2006'       AND
+        BUZEI = '007'.
+  IF SY-SUBRC = 0.
+    APPEND IT_BUZTAB.
+    CLEAR  IT_BUZTAB.
+  ENDIF.
+
+  CALL FUNCTION 'FI_ITEMS_MASS_CHANGE'
+    EXPORTING
+      S_BSEG     = W_BSEG
+    IMPORTING
+      ERRTAB     = IT_ERRTAB[]
+    TABLES
+      IT_BUZTAB  = IT_BUZTAB
+      IT_FLDTAB  = IT_FLDTAB
+    EXCEPTIONS
+      BDC_ERRORS = 1
+      OTHERS     = 2.
+  IF SY-SUBRC <> 0.
+   MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+           WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+    PERFORM GENERATE_MESSAGE.
+    WRITE : W_MESSAGE.
+  ELSE.
+    WRITE : 'Updated successfully'.
+  ENDIF.
+*----
+*     Form  generate_message
+*----
+  FORM GENERATE_MESSAGE .
+      CLEAR W_MESSAGE.
+
+    READ TABLE IT_ERRTAB INDEX 1.
+    IF SY-SUBRC <> 0.
+      CALL FUNCTION 'FORMAT_MESSAGE'
+        EXPORTING
+          ID        = IT_ERRTAB-ERR-MSGID
+          LANG      = SY-LANGU
+          NO        = IT_ERRTAB-ERR-MSGNR
+          V1        = IT_ERRTAB-ERR-MSGV1
+          V2        = IT_ERRTAB-ERR-MSGV2
+          V3        = IT_ERRTAB-ERR-MSGV3
+          V4        = IT_ERRTAB-ERR-MSGV4
+        IMPORTING
+          MSG       = W_MESSAGE
+        EXCEPTIONS
+          NOT_FOUND = 1
+          OTHERS    = 2.
+     ENDIF.
+
+  ENDFORM.

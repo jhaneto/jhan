@@ -1,0 +1,49 @@
+*&---------------------------------------------------------------------*
+*& Report  ZEXEMPLO_AT_LINES
+*&
+*&---------------------------------------------------------------------*
+*&
+*&
+*&---------------------------------------------------------------------*
+
+REPORT ZEXEMPLO_AT_LINES.
+
+DATA TEXT(20).
+
+START-OF-SELECTION.
+  PERFORM WRITE_AND_HIDE USING SPACE SPACE.
+
+AT LINE-SELECTION.
+  CASE TEXT.
+    WHEN 'List index'.
+      PERFORM WRITE_AND_HIDE USING 'X' SPACE.
+    WHEN 'User command'.
+      PERFORM WRITE_AND_HIDE USING SPACE 'X'.
+    WHEN OTHERS.
+      SUBTRACT 2 FROM SY-LSIND.
+      PERFORM WRITE_AND_HIDE USING SPACE SPACE.
+  ENDCASE.
+  CLEAR TEXT.
+
+FORM WRITE_AND_HIDE USING P_FLAG_LSIND P_FLAG_UCOMM.
+  WRITE / 'SY-LSIND:'.
+  PERFORM WRITE_WITH_COLOR USING SY-LSIND P_FLAG_LSIND.
+  TEXT = 'List index'.
+  HIDE TEXT.
+  WRITE / 'SY-UCOMM:'.
+  PERFORM WRITE_WITH_COLOR USING SY-UCOMM P_FLAG_UCOMM.
+  TEXT = 'User command'.
+  HIDE TEXT.
+  IF SY-LSIND > 0.
+    WRITE / 'PICK here to go back one list level'.
+  ENDIF.
+ENDFORM.
+
+FORM WRITE_WITH_COLOR USING P_VALUE
+                            P_FLAG_POSITIVE.
+  IF P_FLAG_POSITIVE = SPACE.
+    WRITE P_VALUE COLOR COL_NORMAL.
+  ELSE.
+    WRITE P_VALUE COLOR COL_POSITIVE.
+  ENDIF.
+ENDFORM.
